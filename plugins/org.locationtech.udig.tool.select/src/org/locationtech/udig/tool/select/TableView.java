@@ -75,7 +75,6 @@ import org.eclipse.ui.internal.UIPlugin;
 import org.eclipse.ui.part.ViewPart;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.eclipse.ui.preferences.ScopedPreferenceStore;
-import org.geotools.data.DefaultQuery;
 import org.geotools.data.FeatureEvent;
 import org.geotools.data.FeatureSource;
 import org.geotools.data.FeatureStore;
@@ -190,7 +189,7 @@ public class TableView extends ViewPart implements ISelectionProvider, IUDIGView
     
     /** Toolbar entry used to turn on selection mode */
     private IAction select;
-
+    
     /**
      * This listener watches the workbench selection and reports
      * back anything that.
@@ -896,11 +895,18 @@ public class TableView extends ViewPart implements ISelectionProvider, IUDIGView
             // updates field;
             Envelope modifiedBounds = null;
             
+            List<Filter> filters = new ArrayList<Filter>(updates.size());
+            
             synchronized (updates) {
                 for( FeatureEvent event : updates ) {
+                	Filter f = event.getFilter();
+                	if (f != null && f != Filter.INCLUDE) {
+                		filters.add(f);
+                	}
+                	
                     Envelope bounds = event.getBounds();
-                    switch( event.getEventType() ) {
-                    case FeatureEvent.FEATURES_ADDED:
+                    switch( event.getType() ) {
+                    case ADDED:
                         if( bounds != null ){
                             if( addedBounds==null ){
                                 addedBounds=new Envelope(bounds);
@@ -909,21 +915,20 @@ public class TableView extends ViewPart implements ISelectionProvider, IUDIGView
                             }
                         }
                         break;
-                    case FeatureEvent.FEATURES_REMOVED:
+                    case REMOVED:
                         // With current Event API there is no way to know what was removed
                         reloadNeeded=true;
                         if( active )
                             reloadFeatures(notifierLayer);
                         return;
                         
-                    case FeatureEvent.FEATURES_CHANGED:
-                        if (event.getBounds() == null) {
-                            return;
-                        }
-                        if (modifiedBounds == null) {
-                            modifiedBounds = new Envelope(bounds);
-                        } else {
-                            modifiedBounds.expandToInclude(bounds);
+                    case CHANGED:
+                        if (bounds != null) {
+	                        if (modifiedBounds == null) {
+	                            modifiedBounds = new Envelope(bounds);
+	                        } else {
+	                            modifiedBounds.expandToInclude(bounds);
+	                        }
                         }
                         break;
 
@@ -934,7 +939,7 @@ public class TableView extends ViewPart implements ISelectionProvider, IUDIGView
                 updates.clear();
             }
             // check if we actually go something out of all that
-            if( addedBounds == null && modifiedBounds == null){
+            if(filters.isEmpty() && addedBounds == null && modifiedBounds == null){
                 // fine we did not get anything we will need to reload
                 if( active ){
                     reloadFeatures(notifierLayer);
@@ -949,8 +954,14 @@ public class TableView extends ViewPart implements ISelectionProvider, IUDIGView
             
             FilterFactory fac=CommonFactoryFinder.getFilterFactory(GeoTools.getDefaultHints());
             final List<String> queryAtts = obtainQueryAttributesForFeatureTable(schema);
-            final DefaultQuery query=new DefaultQuery(schema.getName().getLocalPart(), Filter.EXCLUDE, queryAtts.toArray(new String[0]));
-
+            final Query query=new Query(schema.getName().getLocalPart(), Filter.EXCLUDE, queryAtts.toArray(new String[0]));
+            
+            if (filters.size() > 0) {				
+                query.setFilter(fac.or(filters));
+                FeatureCollection<SimpleFeatureType, SimpleFeature>  features = source.getFeatures(query);
+                this.table.update(features);
+            }
+            
             String name = schema.getGeometryDescriptor().getName().getLocalPart();
 			// add new features
             if( addedBounds!=null ){
@@ -1080,7 +1091,7 @@ public class TableView extends ViewPart implements ISelectionProvider, IUDIGView
         if(isAOIFilter()){
             filter = addAOIFilter(filter, schema.getCoordinateReferenceSystem());
         }
-        final Query query = new DefaultQuery(schema.getName().getLocalPart(), filter, queryAtts.toArray(new String[0]));
+        final Query query = new Query(schema.getName().getLocalPart(), filter, queryAtts.toArray(new String[0]));
         FeatureCollection<SimpleFeatureType, SimpleFeature>  featuresF = featureSource.getFeatures(query);        
         final FeatureCollection<SimpleFeatureType, SimpleFeature>  features = featuresF;
         
@@ -1425,7 +1436,7 @@ public class TableView extends ViewPart implements ISelectionProvider, IUDIGView
                     
                     Set<String> required = (Set<String>) filter.accept( new FilterAttributeExtractor(), null );
                     String[] names = required.toArray( new String[ required.size()]);
-                    final DefaultQuery query=new DefaultQuery(schema.getName().getLocalPart(), filter, names );
+                    final Query query=new Query(schema.getName().getLocalPart(), filter, names );
                     
                     FeatureCollection<SimpleFeatureType, SimpleFeature> features;
                     features = source.getFeatures( query ); // we just want the FeatureID no attributes needed
