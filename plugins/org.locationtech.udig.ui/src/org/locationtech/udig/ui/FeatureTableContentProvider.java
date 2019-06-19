@@ -75,8 +75,13 @@ class FeatureTableContentProvider implements ILazyContentProvider, IProvider<Col
      */
     private FeatureListener listener = new FeatureListener() {
 
-        @Override
+    	@Override
         public void changed(FeatureEvent event) {
+    		//SWT updates must happen in the UI thread.
+    		PlatformGIS.asyncInDisplayThread(() -> onChanged(event), true);
+    	}
+    	
+        public void onChanged(FeatureEvent event) {
             if (listener == null) {
                 event.getFeatureSource().removeFeatureListener(this);
                 return;
