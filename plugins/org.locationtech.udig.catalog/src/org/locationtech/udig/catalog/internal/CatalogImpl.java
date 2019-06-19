@@ -34,6 +34,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import javax.annotation.CheckReturnValue;
+
 import org.locationtech.udig.catalog.CatalogPlugin;
 import org.locationtech.udig.catalog.ICatalog;
 import org.locationtech.udig.catalog.ICatalogInfo;
@@ -142,6 +144,7 @@ public class CatalogImpl extends ICatalog {
         catalogListeners.remove(listener);
     }
 
+    @CheckReturnValue
     public IService add( IService service ) throws UnsupportedOperationException {
         if (service == null || service.getIdentifier() == null)
             throw new NullPointerException("Cannot have a null id"); //$NON-NLS-1$
@@ -288,9 +291,7 @@ public class CatalogImpl extends ICatalog {
             createdService = possible.get(0);
             
             try {
-                
-                add(createdService);// TODO don't clean this one up!
-                return createdService;
+                return add(createdService);
             } catch (Throwable t) {
                 // usually indicates an IOException as the service is unable to connect
                 CatalogPlugin.trace("trouble connecting to " + createdService.getID(), t);
@@ -347,8 +348,7 @@ public class CatalogImpl extends ICatalog {
             createdService = possible.get(0);
 
             try {
-                add(createdService);// TODO don't clean this one up!
-                return createdService;
+                return add(createdService);
             } catch (Throwable t) {
                 // usually indicates an IOException as the service is unable to connect
                 CatalogPlugin.trace("trouble connecting to " + createdService.getID(), t);
