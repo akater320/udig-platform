@@ -41,7 +41,9 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 
 import org.geotools.data.ows.GetCapabilitiesRequest;
 import org.geotools.data.ows.GetCapabilitiesResponse;
+import org.geotools.data.ows.HTTPClient;
 import org.geotools.data.ows.Layer;
+import org.geotools.data.ows.SimpleHttpClient;
 import org.geotools.data.ows.Specification;
 import org.geotools.data.ows.WMSCapabilities;
 import org.geotools.data.wms.WMS1_0_0;
@@ -132,10 +134,35 @@ public class WMSServiceImpl extends IService {
                         URL url1 = (URL) getConnectionParams().get(WMS_URL_KEY);
                         if (theUserIsWatching != null)
                             theUserIsWatching.worked(5);
-                        wms = new CustomWMS(url1);
+                        
+                        //TODO:: check if the server supports gzip or not and depending on it use one or another constructor
+                        HTTPClient client = new SimpleHttpClient();
+                        client.setTryGzip(false);
+                        client.setConnectTimeout(WmsPlugin.getDefault().getPreferenceStore().getInt(
+                                    WmsPreferenceConstants.WMS_RESPONSE_TIMEOUT));
+                        try {                   
+                            wms = new CustomWMS(url1, client);
+                        } catch (IOException persived) {
+                            System.err.println(persived.getMessage()); 
+                            persived.printStackTrace();   
+                            throw new IOException(persived);
+                        } catch (ServiceException e) {
+                          //The server returned a ServiceException (unusual in this case)
+                            System.err.println(e.getMessage()); 
+                            e.printStackTrace();
+                        } catch (SAXException e) {
+                          //Unable to parse the response from the server
+                          //For example, the capabilities it returned was not valid
+                            System.err.println(e.getMessage()); 
+                            e.printStackTrace();
+                        }
+                        
                         if (theUserIsWatching != null)
                             theUserIsWatching.done();
                     } catch (IOException persived) {
+                        System.err.println(persived.getMessage()); 
+                        persived.printStackTrace();
+                        
                         error = persived;
                         throw persived;
                     } catch (Throwable nak) {
@@ -361,6 +388,17 @@ public class WMSServiceImpl extends IService {
         public CustomWMS( URL serverURL ) throws IOException, ServiceException, SAXException {
             super(serverURL, WmsPlugin.getDefault().getPreferenceStore().getInt(
                     WmsPreferenceConstants.WMS_RESPONSE_TIMEOUT));
+            
+            if (WmsPlugin.isDebugging(REQUEST)) {
+                System.out.println("Connection to WMS located at: " + serverURL); //$NON-NLS-1$
+            }
+            if (getCapabilities() == null) {
+                throw new IOException("Unable to parse capabilities document."); //$NON-NLS-1$
+            }
+        }
+        
+        public CustomWMS( URL serverURL, HTTPClient client ) throws IOException, ServiceException, SAXException {
+            super(serverURL, client);
             
             if (WmsPlugin.isDebugging(REQUEST)) {
                 System.out.println("Connection to WMS located at: " + serverURL); //$NON-NLS-1$
