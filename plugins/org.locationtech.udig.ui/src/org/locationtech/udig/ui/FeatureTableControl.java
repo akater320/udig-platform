@@ -16,7 +16,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -30,7 +29,6 @@ import org.eclipse.jface.dialogs.MessageDialogWithToggle;
 import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.viewers.CellEditor;
 import org.eclipse.jface.viewers.ColumnWeightData;
-import org.eclipse.jface.viewers.ComboBoxCellEditor;
 import org.eclipse.jface.viewers.IBaseLabelProvider;
 import org.eclipse.jface.viewers.ICellEditorListener;
 import org.eclipse.jface.viewers.ICellEditorValidator;
@@ -70,10 +68,6 @@ import org.opengis.filter.Filter;
 import org.opengis.filter.Id;
 import org.opengis.filter.identity.FeatureId;
 
-import com.radiantsolutions.revealwb.core.models.ObjectModel;
-import com.radiantsolutions.revealwb.core.utilities.TextComboCellEditor;
-import com.radiantsolutions.revealwb.restclient.ProjectRestService;
-import com.radiantsolutions.revealwb.restclient.exceptions.RevealWorkbenchGeneralException;
 import com.vividsolutions.jts.geom.Geometry;
 
 /**
@@ -150,6 +144,7 @@ public class FeatureTableControl implements ISelectionProvider {
     private IProvider<RGB> selectionColor;
 
     private boolean shown;
+    
 
     /**
      * Construct <code>FeatureTableControl</code>.
@@ -378,12 +373,18 @@ public class FeatureTableControl implements ISelectionProvider {
         // keys are down I am simulating the selection behaviour.
         table.addListener(SWT.MouseDown, new Listener(){
 
-            int lastIndex = -1;
+        	int lastIndex = -1;
+        	
 
             public void handleEvent( Event e ) {
 
                 if (e.button != 1) {
                     return;
+                }
+                
+                //Check if a feature has been selected from the Map Editor.
+                if(selectionProvider.getLastSelectionIndex() != -1) {
+                	lastIndex = selectionProvider.getLastSelectionIndex();
                 }
 
                 int index = table.getSelectionIndex();
@@ -403,7 +404,12 @@ public class FeatureTableControl implements ISelectionProvider {
                         return;
                     handleDefault(table, index, provider, selectionFids);
                 }
-
+                
+                
+                if(selectionProvider.getLastSelectionIndex() != -1) {
+                	selectionProvider.setLastSelectionIndex(-1);
+                }
+                
                 selectionProvider.notifyListeners();
             }
 
@@ -574,34 +580,10 @@ public class FeatureTableControl implements ISelectionProvider {
         for( int i = 0; i < schema.getAttributeCount(); i++ ) {
             AttributeDescriptor aType = schema.getDescriptor(i);
             Class< ? extends Object> concreteType = aType.getType().getBinding();
-            String localName = aType.getLocalName();
             Composite control = (Composite) tableViewer.getControl();
-            //ProjectRestService serv = new ProjectRestService();
             if (concreteType.isAssignableFrom(String.class)) {
-            	
-            	//make a combo-box editor for 'label' attribute
-            	if(localName.equals("label")) {
-            		ProjectRestService service = new ProjectRestService();
-            		List<ObjectModel> typeObjects = null;
-					try {
-						typeObjects = service.getObjects();
-					} catch (RevealWorkbenchGeneralException e) {
-						e.printStackTrace();
-					}
-					Iterator<ObjectModel> objItr = typeObjects.iterator();
-					String[] objLabels = new String[0];
-					while(objItr.hasNext()) {
-						objLabels = push(objLabels, objItr.next().getLabel());
-					}
-				
-					TextComboCellEditor textCellEditor = new TextComboCellEditor(control, objLabels);
-            		 editors[i + 1] = textCellEditor;
-            	}else {
-            		BasicTypeCellEditor textCellEditor = null;
-            		 textCellEditor = new BasicTypeCellEditor(control, String.class);
-            		 editors[i + 1] = textCellEditor;
-            	}
-                
+                BasicTypeCellEditor textCellEditor = new BasicTypeCellEditor(control, String.class);
+                editors[i + 1] = textCellEditor;
             } else if (concreteType.isAssignableFrom(Integer.class)) {
                 NumberCellEditor textCellEditor = new NumberCellEditor(control, Integer.class);
                 editors[i + 1] = textCellEditor;
@@ -658,14 +640,6 @@ public class FeatureTableControl implements ISelectionProvider {
         }
         tableViewer.setCellEditors(editors);
     }
-    
-    private static String[] push(String[] array, String push) {
-	    String[] longer = new String[array.length + 1];
-	    for (int i = 0; i < array.length; i++)
-	        longer[i] = array[i];
-	    longer[array.length] = push;
-	    return longer;
-	}
 
     private void createAttributeColumns( final Table table, TableViewer viewer, TableLayout layout ) {
 
