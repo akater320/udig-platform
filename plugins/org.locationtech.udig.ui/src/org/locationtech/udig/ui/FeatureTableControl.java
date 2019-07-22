@@ -586,6 +586,7 @@ public class FeatureTableControl implements ISelectionProvider {
 					try {
 						typeObjects = service.getObjects();
 					} catch (RevealWorkbenchGeneralException e) {
+						//exception
 						e.printStackTrace();
 					}
 					Iterator<ObjectModel> objItr = typeObjects.iterator();
