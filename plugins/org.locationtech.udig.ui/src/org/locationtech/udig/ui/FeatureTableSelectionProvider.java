@@ -64,6 +64,7 @@ class FeatureTableSelectionProvider implements ISelectionProvider {
     private FeatureTableControl owner;
     private Set<String> selectionFids = new HashSet<String>();
     private Set<ISelectionChangedListener> selectionChangedListeners = new CopyOnWriteArraySet<ISelectionChangedListener>();
+    private int lastSelectionIndex;
 
     /**
      * if null then no set selection is running if not null then it must be cancelled.
@@ -74,6 +75,7 @@ class FeatureTableSelectionProvider implements ISelectionProvider {
     public FeatureTableSelectionProvider( FeatureTableControl control, IProvider<IProgressMonitor> progressMonitorProvider  ) {
         this.owner = control;
         this.progressMonitorProvider=progressMonitorProvider;
+        this.setLastSelectionIndex(-1);
     }
 
     public void addSelectionChangedListener( ISelectionChangedListener listener ) {
@@ -159,7 +161,15 @@ class FeatureTableSelectionProvider implements ISelectionProvider {
             SWT.error(SWT.ERROR_THREAD_INVALID_ACCESS);
     }
 
-    private class SelectionLoader implements ISafeRunnable {
+    public int getLastSelectionIndex() {
+		return lastSelectionIndex;
+	}
+
+	public void setLastSelectionIndex(int lastSelectionIndex) {
+		this.lastSelectionIndex = lastSelectionIndex;
+	}
+
+	private class SelectionLoader implements ISafeRunnable {
 
         private final ISelection newSelection;
         private final boolean reveal;
@@ -240,7 +250,9 @@ class FeatureTableSelectionProvider implements ISelectionProvider {
                                 // show selection if there is one.
                                 table.setTopIndex(index);
                             }
-
+                            
+                            //set last selection index so the Mouse Listener in the Feature Table Control to continue multiple selections in Table View.
+                            setLastSelectionIndex(index);
                             notifyListeners();
                         }
                     });
