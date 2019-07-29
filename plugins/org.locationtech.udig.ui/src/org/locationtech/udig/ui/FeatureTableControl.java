@@ -144,6 +144,7 @@ public class FeatureTableControl implements ISelectionProvider {
     private IProvider<RGB> selectionColor;
 
     private boolean shown;
+    
 
     /**
      * Construct <code>FeatureTableControl</code>.
@@ -372,12 +373,18 @@ public class FeatureTableControl implements ISelectionProvider {
         // keys are down I am simulating the selection behaviour.
         table.addListener(SWT.MouseDown, new Listener(){
 
-            int lastIndex = -1;
+        	int lastIndex = -1;
+        	
 
             public void handleEvent( Event e ) {
 
                 if (e.button != 1) {
                     return;
+                }
+                
+                //Check if a feature has been selected from the Map Editor.
+                if(selectionProvider.getLastSelectionIndex() != -1) {
+                	lastIndex = selectionProvider.getLastSelectionIndex();
                 }
 
                 int index = table.getSelectionIndex();
@@ -397,7 +404,12 @@ public class FeatureTableControl implements ISelectionProvider {
                         return;
                     handleDefault(table, index, provider, selectionFids);
                 }
-
+                
+                
+                if(selectionProvider.getLastSelectionIndex() != -1) {
+                	selectionProvider.setLastSelectionIndex(-1);
+                }
+                
                 selectionProvider.notifyListeners();
             }
 
