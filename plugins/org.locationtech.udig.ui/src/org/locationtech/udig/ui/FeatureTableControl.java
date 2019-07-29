@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.regex.Pattern;
@@ -68,6 +69,8 @@ import org.opengis.filter.Filter;
 import org.opengis.filter.Id;
 import org.opengis.filter.identity.FeatureId;
 
+import com.radiantsolutions.revealwb.core.utilities.TextComboCellEditor;
+import com.radiantsolutions.revealwb.digitizer.DigitizingProjectManager;
 import com.vividsolutions.jts.geom.Geometry;
 
 /**
@@ -568,10 +571,25 @@ public class FeatureTableControl implements ISelectionProvider {
         for( int i = 0; i < schema.getAttributeCount(); i++ ) {
             AttributeDescriptor aType = schema.getDescriptor(i);
             Class< ? extends Object> concreteType = aType.getType().getBinding();
+            String localName = aType.getLocalName();
             Composite control = (Composite) tableViewer.getControl();
             if (concreteType.isAssignableFrom(String.class)) {
-                BasicTypeCellEditor textCellEditor = new BasicTypeCellEditor(control, String.class);
-                editors[i + 1] = textCellEditor;
+            	//check if its label called 'label'...
+                //if yes... make the editor a string drop down editor with the objects name
+            	if(localName.equals("label")) {
+					String[] objLabels = new String[0];
+					//grab list of Objects from cached list.
+					for(Entry<Long, String> entry : DigitizingProjectManager.CASHE_OBJECTS_MODELS.entrySet()) {
+						objLabels = push(objLabels, entry.getValue() + " - " + entry.getKey());
+					}
+				
+					TextComboCellEditor textCellEditor = new TextComboCellEditor(control, objLabels);
+            		 editors[i + 1] = textCellEditor;
+            	}else {
+            		BasicTypeCellEditor textCellEditor = null;
+            		 textCellEditor = new BasicTypeCellEditor(control, String.class);
+            		 editors[i + 1] = textCellEditor;
+            	}
             } else if (concreteType.isAssignableFrom(Integer.class)) {
                 NumberCellEditor textCellEditor = new NumberCellEditor(control, Integer.class);
                 editors[i + 1] = textCellEditor;
@@ -628,6 +646,14 @@ public class FeatureTableControl implements ISelectionProvider {
         }
         tableViewer.setCellEditors(editors);
     }
+    
+    private String[] push(String[] array, String push) {
+	    String[] longer = new String[array.length + 1];
+	    for (int i = 0; i < array.length; i++)
+	        longer[i] = array[i];
+	    longer[array.length] = push;
+	    return longer;
+	}
 
     private void createAttributeColumns( final Table table, TableViewer viewer, TableLayout layout ) {
 
